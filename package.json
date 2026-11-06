@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "snapshots:refresh": "node scripts/refresh-snapshots.mjs"
+    "snapshots:refresh": "node scripts/refresh-snapshots.mjs",
+    "fixtures:build": "node scripts/build-test-fixture.mjs",
+    "test": "node --test tests/fixtures.test.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

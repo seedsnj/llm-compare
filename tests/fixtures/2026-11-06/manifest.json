@@ -1,0 +1,47 @@
+{
+  "fixtureDate": "2026-11-06",
+  "createdAt": "2026-11-06T14:03:58.120Z",
+  "files": [
+    {
+      "name": "models.json",
+      "bytes": 14949,
+      "sha256": "4d6b5ea67e13faca3e335398d940a9be2b84eafffd5bd425f7c50a55818f3df2",
+      "source": "src/data/pricing-fallback.json"
+    },
+    {
+      "name": "capabilities.json",
+      "bytes": 89303,
+      "sha256": "9e63b0bc1cf86715568017fe16dde193a5837e309f3172ec17d8ccd8ae9a36d7",
+      "source": "src/data/capability-snapshot.json"
+    },
+    {
+      "name": "benchmarks.json",
+      "bytes": 8369,
+      "sha256": "07c94fe60ac0ffb43c7c8d521476f519e5b35fa416d4684ba4d5f39cce975487",
+      "source": "src/data/benchmark-snapshot.json"
+    }
+  ],
+  "counts": {
+    "models": 36,
+    "activeModels": 27,
+    "deprecatedModels": 9,
+    "capabilityProfiles": 32,
+    "benchmarks": 6,
+    "benchmarkResults": 26
+  },
+  "capturedAt": {
+    "models": "2026-11-06T14:03:22.751Z",
+    "capabilities": "2026-11-06T14:03:22.751Z",
+    "benchmarks": "2026-11-06T00:00:00.000Z"
+  },
+  "sources": {
+    "models": {
+      "name": "models.dev",
+      "url": "https://models.dev/api.json",
+      "provider": "GitHub Copilot"
+    },
+    "lmArenaRevision": "5a7e6bb84a93f55df56b198be8e56e53755a216a",
+    "lmArenaDataset": "https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset",
+    "aiModelIndex": "https://github.com/EvanZhouDev/ai-model-index/tree/main/data/llm"
+  }
+}
