@@ -1,8 +1,15 @@
 import type {
+  BenchmarkKey,
+  BenchmarkSnapshot,
   CapabilitySnapshot,
   CopilotModel,
   Evidence,
   EvidenceKey,
+  ProfileDimensionEvidence,
+  ProfileDimension,
+  ProfileDimensionKey,
+  ProfileInsight,
+  ProfileSourceKey,
 } from "../types";
 
 export const REFERENCE_INPUT_TOKENS = 100_000;
@@ -12,7 +19,8 @@ export type CapabilityMetricKey =
   | "aaIntelligence"
   | "text"
   | "webdev"
-  | "agent";
+  | "agent"
+  | "document";
 
 export type CostTier = "低成本" | "中成本" | "高成本" | "极高成本";
 export type ValueTier = "值选" | "高效" | "一般" | "偏低";
@@ -31,6 +39,7 @@ export interface ModelInsight {
   costBarPercent: number;
   costTier: CostTier;
   metrics: Record<CapabilityMetricKey, CapabilityInsight | null>;
+  profile: ProfileInsight;
   valueIndex: number | null;
   valueBarPercent: number | null;
   valueTier: ValueTier | null;
@@ -44,7 +53,7 @@ export interface InsightsResult {
     CapabilityMetricKey,
     { min: number; max: number; count: number }
   >;
-  medianWebdevCost: number | null;
+  medianProfileCost: number | null;
 }
 
 const capabilityMetrics: CapabilityMetricKey[] = [
@@ -52,6 +61,7 @@ const capabilityMetrics: CapabilityMetricKey[] = [
   "text",
   "webdev",
   "agent",
+  "document",
 ];
 
 function clamp(value: number, min = 0, max = 100) {
@@ -91,9 +101,153 @@ function metricEvidence(modelId: string, key: EvidenceKey, snapshot: CapabilityS
   return snapshot.models[modelId]?.[key] ?? null;
 }
 
+const profileDimensionMeta: Array<{
+  key: ProfileDimensionKey;
+  label: string;
+  weight: number;
+}> = [
+  { key: "hard", label: "高难度", weight: 0.2 },
+  { key: "medium", label: "通用开发", weight: 0.6 },
+  { key: "daily", label: "日常信息", weight: 0.2 },
+];
+
+const proxySources: Record<
+  "lmArenaAgent" | "lmArenaWebdev" | "lmArenaDocument" | "lmArenaText",
+  { label: string; url: string }
+> = {
+  lmArenaAgent: {
+    label: "LMArena Agent（代理）",
+    url: "https://datasets-server.huggingface.co/rows?dataset=lmarena-ai%2Fleaderboard-dataset&config=agent&split=latest&offset=0&length=100",
+  },
+  lmArenaWebdev: {
+    label: "LMArena Webdev（代理）",
+    url: "https://datasets-server.huggingface.co/rows?dataset=lmarena-ai%2Fleaderboard-dataset&config=webdev&split=latest&offset=0&length=100",
+  },
+  lmArenaDocument: {
+    label: "LMArena Document（代理）",
+    url: "https://datasets-server.huggingface.co/rows?dataset=lmarena-ai%2Fleaderboard-dataset&config=document&split=latest&offset=0&length=100",
+  },
+  lmArenaText: {
+    label: "LMArena Text（代理）",
+    url: "https://datasets-server.huggingface.co/rows?dataset=lmarena-ai%2Fleaderboard-dataset&config=text&split=latest&offset=0&length=100",
+  },
+};
+
+function benchmarkEvidence(
+  modelId: string,
+  benchmarkKey: BenchmarkKey,
+  benchmarks: BenchmarkSnapshot,
+): ProfileDimensionEvidence | null {
+  const benchmark = benchmarks.benchmarks[benchmarkKey];
+  if (!benchmark?.usedInProfile) return null;
+  const result = benchmark.results.find((item) => item.modelId === modelId);
+  if (!result) return null;
+
+  return {
+    sourceKey: benchmarkKey,
+    sourceLabel: benchmark.label,
+    sourceUrl: benchmark.url,
+    sourceModelName: result.sourceModelName,
+    score: clamp(result.score),
+    kind: benchmark.kind === "legacy" ? "legacy" : "direct",
+    harness: result.harness,
+    reasoningEffort: result.reasoningEffort,
+    publishedAt: result.publishedAt ?? result.modelReleaseDate ?? null,
+  };
+}
+
+function proxyEvidence(
+  capability: CapabilityInsight | null,
+  sourceKey: keyof typeof proxySources,
+): ProfileDimensionEvidence | null {
+  if (!capability) return null;
+  const source = proxySources[sourceKey];
+  return {
+    sourceKey,
+    sourceLabel: source.label,
+    sourceUrl: source.url,
+    sourceModelName: capability.evidence.modelName,
+    score: capability.barPercent,
+    kind: "proxy",
+    publishedAt: capability.evidence.publishedAt,
+  };
+}
+
+function createProfile(
+  modelId: string,
+  metrics: Record<CapabilityMetricKey, CapabilityInsight | null>,
+  benchmarks: BenchmarkSnapshot,
+): ProfileInsight {
+  const hard =
+    benchmarkEvidence(modelId, "terminalBench4", benchmarks) ??
+    benchmarkEvidence(modelId, "terminalBench2", benchmarks) ??
+    proxyEvidence(metrics.agent, "lmArenaAgent");
+  const medium =
+    benchmarkEvidence(modelId, "sweBenchVerified", benchmarks) ??
+    proxyEvidence(metrics.webdev, "lmArenaWebdev");
+  const daily =
+    benchmarkEvidence(modelId, "clawMark", benchmarks) ??
+    proxyEvidence(metrics.document, "lmArenaDocument") ??
+    proxyEvidence(metrics.text, "lmArenaText");
+
+  const dimensions: Partial<Record<ProfileDimensionKey, ProfileDimension>> = {};
+  const evidenceByDimension = { hard, medium, daily };
+  for (const definition of profileDimensionMeta) {
+    const evidence = evidenceByDimension[definition.key];
+    if (!evidence) continue;
+    dimensions[definition.key] = {
+      ...definition,
+      score: evidence.score,
+      evidence,
+    };
+  }
+
+  const observedDimensions = Object.values(dimensions) as ProfileDimension[];
+  const observedWeight = observedDimensions.reduce(
+    (total, dimension) => total + dimension.weight,
+    0,
+  );
+  const coverage = observedWeight * 100;
+  const score =
+    observedDimensions.length >= 2 && coverage >= 79.999
+      ? observedDimensions.reduce(
+          (total, dimension) =>
+            total + dimension.weight * dimension.score,
+          0,
+        ) / observedWeight
+      : null;
+  const directDimensionCount = observedDimensions.filter(
+    (dimension) =>
+      dimension.evidence.kind === "direct" ||
+      dimension.evidence.kind === "legacy",
+  ).length;
+  const missingDimensions = profileDimensionMeta
+    .filter((definition) => !dimensions[definition.key])
+    .map((definition) => definition.key);
+
+  return {
+    dimensions,
+    score: score == null ? null : clamp(score),
+    coverage,
+    directDimensionCount,
+    confidence:
+      score == null
+        ? "数据不足"
+        : coverage < 99.999
+          ? "低"
+          : directDimensionCount >= 2
+            ? "中低"
+            : directDimensionCount === 1
+              ? "低"
+              : "仅代理",
+    missingDimensions,
+  };
+}
+
 export function buildModelInsights(
   models: CopilotModel[],
   snapshot: CapabilitySnapshot,
+  benchmarks: BenchmarkSnapshot,
 ): InsightsResult {
   const activeModels = models.filter((model) => !model.deprecated);
   const pricedActiveModels = activeModels.filter(
@@ -168,6 +322,7 @@ export function buildModelInsights(
           ];
         }),
       ) as Record<CapabilityMetricKey, CapabilityInsight | null>;
+      const profile = createProfile(model.id, metrics, benchmarks);
 
       let costTier: CostTier = "中成本";
       if (cost != null) {
@@ -198,6 +353,7 @@ export function buildModelInsights(
             cost == null ? 0 : logPercent(cost, costRange.min, costRange.max),
           costTier,
           metrics,
+          profile,
           valueIndex: null,
           valueBarPercent: null,
           valueTier: null,
@@ -207,45 +363,63 @@ export function buildModelInsights(
     }),
   ) as Record<string, ModelInsight>;
 
-  const activeWebdev = activeModels.flatMap((model) => {
+  const activeValueCandidates = activeModels.flatMap((model) => {
     const insight = baseInsights[model.id];
-    const webdev = insight?.metrics.webdev;
-    if (!insight || !webdev || insight.referenceCost <= 0) return [];
+    if (
+      !insight ||
+      insight.referenceCost <= 0 ||
+      insight.profile.score == null ||
+      insight.profile.coverage < 99.999 ||
+      insight.profile.directDimensionCount < 1
+    ) {
+      return [];
+    }
     return [
       {
         id: model.id,
-        abilityPercent: webdev.barPercent,
         cost: insight.referenceCost,
+        profileScore: insight.profile.score,
       },
     ];
   });
 
-  const medianWebdevCost = median(activeWebdev.map((item) => item.cost));
-  if (medianWebdevCost == null || medianWebdevCost <= 0) {
+  const medianProfileCost = median(
+    activeValueCandidates.map((item) => item.cost),
+  );
+  if (medianProfileCost == null || medianProfileCost <= 0) {
     return {
       byModelId: baseInsights,
       topValueIds: [],
       metricRanges,
-      medianWebdevCost: null,
+      medianProfileCost: null,
     };
   }
 
   const valueCandidates = Object.entries(baseInsights).flatMap(
     ([id, insight]) => {
-      const webdev = insight.metrics.webdev;
-      if (!webdev || insight.referenceCost <= 0) return [];
+      if (
+        insight.profile.score == null ||
+        insight.profile.coverage < 99.999 ||
+        insight.profile.directDimensionCount < 1 ||
+        insight.referenceCost <= 0
+      ) {
+        return [];
+      }
       return [
         {
           id,
           value:
-            webdev.barPercent /
-            (1 + insight.referenceCost / medianWebdevCost),
+            insight.profile.score /
+            (1 + insight.referenceCost / medianProfileCost),
         },
       ];
     },
   );
 
-  const maxValue = Math.max(...valueCandidates.map((item) => item.value));
+  const maxValue = Math.max(
+    0,
+    ...valueCandidates.map((item) => item.value),
+  );
   for (const candidate of valueCandidates) {
     const insight = baseInsights[candidate.id];
     insight.valueIndex = candidate.value;
@@ -273,6 +447,6 @@ export function buildModelInsights(
     byModelId: baseInsights,
     topValueIds,
     metricRanges,
-    medianWebdevCost,
+    medianProfileCost,
   };
 }

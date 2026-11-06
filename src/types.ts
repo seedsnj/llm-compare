@@ -111,3 +111,77 @@ export interface TaskPrediction {
   logic: string[];
   sources: SourceReference[];
 }
+
+export type BenchmarkKey =
+  | "terminalBench4"
+  | "terminalBench2"
+  | "sweBenchVerified"
+  | "longCliBench"
+  | "clawMark"
+  | "emailBench";
+
+export type ProfileDimensionKey = "hard" | "medium" | "daily";
+export type ProfileEvidenceKind = "direct" | "legacy" | "proxy";
+
+export interface BenchmarkResult {
+  modelId: string;
+  score: number;
+  sourceModelName: string;
+  harness: string;
+  reasoningEffort: string;
+  modelReleaseDate?: string | null;
+  publishedAt?: string | null;
+}
+
+export interface BenchmarkSource {
+  label: string;
+  version: string;
+  url: string;
+  kind: "direct" | "legacy";
+  usedInProfile: boolean;
+  note: string;
+  results: BenchmarkResult[];
+}
+
+export interface BenchmarkSnapshot {
+  capturedAt: string;
+  benchmarks: Record<BenchmarkKey, BenchmarkSource>;
+}
+
+export type ProfileSourceKey =
+  | BenchmarkKey
+  | "lmArenaAgent"
+  | "lmArenaWebdev"
+  | "lmArenaDocument"
+  | "lmArenaText";
+
+export interface ProfileDimensionEvidence {
+  sourceKey: ProfileSourceKey;
+  sourceLabel: string;
+  sourceUrl: string;
+  sourceModelName: string;
+  score: number;
+  kind: "direct" | "legacy" | "proxy";
+  harness?: string;
+  reasoningEffort?: string;
+  publishedAt?: string | null;
+}
+
+export interface ProfileDimension {
+  key: ProfileDimensionKey;
+  label: string;
+  weight: number;
+  score: number;
+  evidence: ProfileDimensionEvidence;
+}
+
+export type ProfileConfidence = "中低" | "低" | "仅代理" | "数据不足";
+
+export interface ProfileInsight {
+  dimensions: Partial<Record<ProfileDimensionKey, ProfileDimension>>;
+  score: number | null;
+  coverage: number;
+  directDimensionCount: number;
+  confidence: ProfileConfidence;
+  missingDimensions: ProfileDimensionKey[];
+}

@@ -5,12 +5,16 @@ import {
   tasks,
 } from "../lib/predictions";
 import { formatPrice } from "../lib/models";
+import type { ModelInsight } from "../lib/insights";
 import type {
   CapabilitySnapshot,
   Confidence,
   CopilotModel,
   Evidence,
   EvidenceKey,
+  ProfileConfidence,
+  ProfileDimension,
+  ProfileInsight,
 } from "../types";
 
 function confidenceClass(confidence: Confidence) {
@@ -127,11 +131,13 @@ export function CapabilityComparison({
 interface PredictionDetailsProps {
   model: CopilotModel;
   snapshot: CapabilitySnapshot;
+  profile: ModelInsight["profile"];
 }
 
 export function PredictionDetails({
   model,
   snapshot,
+  profile,
 }: PredictionDetailsProps) {
   const predictions = getModelPredictions(model.name, model.id, snapshot);
   const evidence = snapshot.models[model.id] ?? {};
@@ -151,6 +157,8 @@ export function PredictionDetails({
           能力快照 {new Date(snapshot.capturedAt).toLocaleDateString("zh-CN")}
         </span>
       </div>
+
+      <ProfileEvidenceSummary model={model} profile={profile} />
 
       <div className="prediction-grid">
         {predictions.map((prediction) => (
@@ -204,6 +212,123 @@ export function PredictionDetails({
       </div>
 
       <EvidenceCoverage evidence={evidence} />
+    </section>
+  );
+}
+
+function profileConfidenceClass(confidence: ProfileConfidence) {
+  if (confidence === "中低") return "guarded";
+  if (confidence === "低") return "low";
+  if (confidence === "仅代理") return "proxy";
+  return "none";
+}
+
+function ProfileDimensionCard({
+  dimension,
+  label,
+  weight,
+}: {
+  dimension: ProfileDimension | undefined;
+  label: string;
+  weight: string;
+}) {
+  return (
+    <article className={`profile-evidence-card${dimension ? "" : " missing"}`}>
+      <div className="profile-evidence-heading">
+        <div>
+          <small>{weight}</small>
+          <h3>{label}</h3>
+        </div>
+        <strong>{dimension ? dimension.score.toFixed(1) : "无数据"}</strong>
+      </div>
+      {dimension ? (
+        <>
+          <p>{dimension.evidence.sourceLabel}</p>
+          <div className="profile-source-detail">
+            <span>
+              {dimension.evidence.kind === "direct"
+                ? "直接基准"
+                : dimension.evidence.kind === "legacy"
+                  ? "历史直接基准"
+                  : "代理数据"}
+            </span>
+            <span>{dimension.evidence.sourceModelName}</span>
+            {dimension.evidence.harness && (
+              <span>Agent：{dimension.evidence.harness}</span>
+            )}
+            {dimension.evidence.reasoningEffort && (
+              <span>Effort：{dimension.evidence.reasoningEffort}</span>
+            )}
+            {dimension.evidence.publishedAt && (
+              <span>{dimension.evidence.publishedAt}</span>
+            )}
+          </div>
+          <a
+            href={dimension.evidence.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            查看数据源 ↗
+          </a>
+        </>
+      ) : (
+        <p>未找到可精确匹配的数据，不参与综合分。</p>
+      )}
+    </article>
+  );
+}
+
+function ProfileEvidenceSummary({
+  model,
+  profile,
+}: {
+  model: CopilotModel;
+  profile: ProfileInsight;
+}) {
+  return (
+    <section className="profile-evidence-panel">
+      <div className="section-heading compact-heading">
+        <div>
+          <p className="eyebrow">Development profile</p>
+          <h3>{model.name} 的加权 Profile</h3>
+          <p className="subheading">
+            覆盖 {profile.coverage}% · {profile.directDimensionCount} 个直接基准维度
+          </p>
+        </div>
+        <div className="profile-score-summary">
+          <strong>{profile.score == null ? "无可信" : profile.score.toFixed(1)}</strong>
+          <span
+            className={`confidence confidence-${profileConfidenceClass(
+              profile.confidence,
+            )}`}
+          >
+            {profile.confidence}
+          </span>
+        </div>
+      </div>
+
+      <div className="profile-evidence-grid">
+        <ProfileDimensionCard
+          dimension={profile.dimensions.hard}
+          label="高难度 / Agent CLI"
+          weight="20%"
+        />
+        <ProfileDimensionCard
+          dimension={profile.dimensions.medium}
+          label="通用开发"
+          weight="60%"
+        />
+        <ProfileDimensionCard
+          dimension={profile.dimensions.daily}
+          label="日常信息处理"
+          weight="20%"
+        />
+      </div>
+
+      <p className="profile-formula">
+        Profile = 已观测维度加权分 ÷ 已观测权重；覆盖低于 80% 时不计算。
+        直接基准优先，LMArena 仅作为透明标记的代理。
+      </p>
     </section>
   );
 }

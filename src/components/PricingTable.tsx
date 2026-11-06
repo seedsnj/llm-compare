@@ -1,12 +1,11 @@
 import { formatPrice } from "../lib/models";
+import type { InsightsResult, ModelInsight } from "../lib/insights";
 import type {
-  CapabilityInsight,
-  CapabilityMetricKey,
-  InsightsResult,
-  ModelInsight,
-} from "../lib/insights";
-import { evidenceDetail, sourceInfo } from "../lib/predictions";
-import type { CopilotModel, Evidence } from "../types";
+  CopilotModel,
+  ProfileDimension,
+  ProfileDimensionKey,
+  ProfileSourceKey,
+} from "../types";
 
 export type SortKey =
   | "name"
@@ -15,7 +14,8 @@ export type SortKey =
   | "output"
   | "cacheRead"
   | "referenceCost"
-  | CapabilityMetricKey
+  | ProfileDimensionKey
+  | "profile"
   | "value";
 export type SortDirection = "asc" | "desc";
 
@@ -37,7 +37,7 @@ const columns: Array<{
   label: string;
   hint?: string;
   cachedOnly?: boolean;
-  kind?: "price" | "metric" | "value";
+  kind?: "price" | "profile" | "value";
 }> = [
   { key: "name", label: "模型 / 供应商" },
   {
@@ -66,36 +66,49 @@ const columns: Array<{
     kind: "price",
   },
   {
-    key: "aaIntelligence",
-    label: "AA 智能",
-    hint: "AA Intelligence 不是百分制。数字为原始指数；条长按当前快照中相同指标的匹配模型做相对归一化。",
-    kind: "metric",
+    key: "hard",
+    label: "高难 20%",
+    hint: "先取 Terminal-Bench 4.0；缺失时回退 Terminal-Bench 2.0 或 LMArena Agent。实色为直接基准，斜纹为代理。",
+    kind: "profile",
   },
   {
-    key: "text",
-    label: "LMArena 文本",
-    hint: "LMArena 文本为 Bradley–Terry 分数，不是百分制；条长按当前快照匹配范围归一化。",
-    kind: "metric",
+    key: "medium",
+    label: "通用 60%",
+    hint: "先取 SWE-bench Verified；缺失时回退 LMArena Webdev。直接基准与代理使用不同纹理。",
+    kind: "profile",
   },
   {
-    key: "webdev",
-    label: "Webdev",
-    hint: "LMArena Webdev Code Arena 分数；条长按当前快照匹配范围归一化。",
-    kind: "metric",
+    key: "daily",
+    label: "日常 20%",
+    hint: "先取 ClawMark；缺失时回退 LMArena Document，再回退 Text。EmailBench 因构念不匹配不进入 Profile。",
+    kind: "profile",
   },
   {
-    key: "agent",
-    label: "Agent",
-    hint: "LMArena Agent Arena IPS 分数，可为负；条长按当前快照匹配范围归一化。",
-    kind: "metric",
+    key: "profile",
+    label: "Profile",
+    hint: "按 20/60/20 加权。至少两个维度且覆盖达到 80% 才计算；缺失维度不补零。",
+    kind: "profile",
   },
   {
     key: "value",
-    label: "开发性价比",
-    hint: "基于 Webdev 相对能力与参考成本计算，仅评估有 Webdev 数据的模型。无数据不参与排名。",
+    label: "综合性价比",
+    hint: "仅完整 Profile 且至少一个直接基准的模型参与；性价比 = Profile ÷ (1 + 成本 / 中位成本)。",
     kind: "value",
   },
 ];
+
+const sourceShortLabels: Record<ProfileSourceKey, string> = {
+  terminalBench4: "TB4",
+  terminalBench2: "TB2",
+  sweBenchVerified: "SWE",
+  longCliBench: "LongCLI",
+  clawMark: "Claw",
+  emailBench: "Email",
+  lmArenaAgent: "Agent≈",
+  lmArenaWebdev: "Webdev≈",
+  lmArenaDocument: "Doc≈",
+  lmArenaText: "Text≈",
+};
 
 function SortMark({
   active,
@@ -136,51 +149,113 @@ function PriceBar({
   );
 }
 
-function formatMetric(evidence: Evidence, key: CapabilityMetricKey) {
-  if (key === "agent") {
-    return `${evidence.score >= 0 ? "+" : ""}${evidence.score.toFixed(3)}`;
-  }
-  return evidence.score.toFixed(1);
+function profileEvidenceTooltip(dimension: ProfileDimension) {
+  const { evidence } = dimension;
+  const provenance =
+    evidence.kind === "proxy"
+      ? "代理"
+      : evidence.kind === "legacy"
+        ? "历史直接基准"
+        : "直接基准";
+  const details = [
+    evidence.sourceLabel,
+    `${dimension.score.toFixed(1)} / 100`,
+    provenance,
+    evidence.sourceModelName,
+    evidence.harness ? `Agent: ${evidence.harness}` : "",
+    evidence.reasoningEffort
+      ? `Effort: ${evidence.reasoningEffort}`
+      : "",
+    evidence.publishedAt ?? "",
+  ].filter(Boolean);
+  return details.join(" · ");
 }
 
-function CapabilityCell({
-  capability,
-  metricKey,
-  rangeCount,
+function ProfileDimensionCell({
+  dimension,
 }: {
-  capability: CapabilityInsight | null;
-  metricKey: CapabilityMetricKey;
-  rangeCount: number;
+  dimension: ProfileDimension | undefined;
 }) {
-  if (!capability) {
+  if (!dimension) {
     return (
       <div
-        className="metric-no-data"
-        title="该模型没有可精确匹配的当前能力记录，因此不显示分数或零值。"
+        className="profile-dim-no-data"
+        title="该维度没有可精确匹配的直接基准，也没有允许的代理数据。"
       >
         <span>无数据</span>
-        <small>未精确匹配</small>
       </div>
     );
   }
 
-  const { evidence, barPercent } = capability;
-  const tooltip = `${sourceInfo[metricKey].label} · ${evidenceDetail(
-    evidence,
-  )}。条长按当前快照 ${rangeCount} 个匹配模型归一化。`;
-
   return (
-    <div className="metric-value" title={tooltip}>
-      <div className="metric-value-top">
-        <strong>{formatMetric(evidence, metricKey)}</strong>
-        <span>#{evidence.rank}</span>
+    <div
+      className={`profile-dim kind-${dimension.evidence.kind}`}
+      title={profileEvidenceTooltip(dimension)}
+    >
+      <div className="profile-dim-heading">
+        <strong>{dimension.score.toFixed(1)}</strong>
+        <span>{sourceShortLabels[dimension.evidence.sourceKey]}</span>
       </div>
-      <span className="ability-track" aria-hidden="true">
+      <span className="profile-dim-track" aria-hidden="true">
         <span
-          className={`ability-fill ability-${metricKey}`}
-          style={{ width: `${Math.max(barPercent, 1)}%` }}
+          className="profile-dim-fill"
+          style={{ width: `${Math.max(dimension.score, 1)}%` }}
         />
       </span>
+    </div>
+  );
+}
+
+function ProfileCell({ insight }: { insight: ModelInsight | undefined }) {
+  if (!insight || insight.profile.score == null) {
+    return (
+      <div
+        className="profile-no-data"
+        title="至少需要两个维度且总覆盖达到 80%，才计算可信 Profile。"
+      >
+        <span>无可信 Profile</span>
+        <small>覆盖 {insight?.profile.coverage ?? 0}%</small>
+      </div>
+    );
+  }
+
+  const { profile } = insight;
+  const profileScore = profile.score;
+  if (profileScore == null) return null;
+  return (
+    <div
+      className="profile-value"
+      title={`加权 Profile ${profileScore.toFixed(1)}；覆盖 ${profile.coverage}%；${profile.directDimensionCount} 个直接基准维度`}
+    >
+      <div className="profile-heading">
+        <strong>{profileScore.toFixed(1)}</strong>
+        <span className={`profile-confidence confidence-${profile.confidence}`}>
+          {profile.confidence}
+        </span>
+      </div>
+      <span className="profile-segments" aria-hidden="true">
+        {(["hard", "medium", "daily"] as ProfileDimensionKey[]).map((key) => {
+          const weight = key === "hard" ? 20 : key === "medium" ? 60 : 20;
+          const dimension = profile.dimensions[key];
+          return (
+            <span
+              key={key}
+              className={`profile-segment segment-${key}`}
+              style={{ width: `${weight}%` }}
+            >
+              {dimension && (
+                <span
+                  className="profile-segment-fill"
+                  style={{ height: `${dimension.score}%` }}
+                />
+              )}
+            </span>
+          );
+        })}
+      </span>
+      <small>
+        {profile.coverage}% 覆盖 · {profile.directDimensionCount} 个直接指标
+      </small>
     </div>
   );
 }
@@ -191,13 +266,22 @@ function ValueCell({ insight }: { insight: ModelInsight | undefined }) {
     insight.valueIndex == null ||
     insight.valueBarPercent == null
   ) {
+    const profile = insight?.profile;
+    const reason =
+      !profile || profile.score == null
+        ? "无可信 Profile"
+        : profile.coverage < 100
+          ? "Profile 不完整"
+          : profile.directDimensionCount === 0
+            ? "仅代理数据"
+            : "无法计算";
     return (
       <div
         className="value-no-data"
-        title="开发性价比只使用可精确匹配的 LMArena Webdev 数据；无数据模型不参与排名。"
+        title="性价比只对覆盖完整的 Profile 且至少包含一个直接基准的模型计算。"
       >
         <span>无法评估</span>
-        <small>缺少 Webdev</small>
+        <small>{reason}</small>
       </div>
     );
   }
@@ -205,7 +289,7 @@ function ValueCell({ insight }: { insight: ModelInsight | undefined }) {
   return (
     <div
       className={`value-cell${insight.isTopValue ? " value-top" : ""}`}
-      title="性价比 = Webdev 相对能力 ÷ (1 + 参考成本 / 有效模型参考成本中位数)"
+      title="性价比 = 加权 Profile ÷ (1 + 参考成本 / 合格模型成本中位数)"
     >
       <div className="value-heading">
         <strong>{insight.valueIndex.toFixed(1)}</strong>
@@ -292,16 +376,6 @@ export function PricingTable({
             const isPinned = pinnedIds.includes(model.id);
             const isSelected = selectedId === model.id;
             const insight = insights.byModelId[model.id];
-            const prices = [
-              {
-                value: model.input,
-                percent: insight?.inputBarPercent,
-              },
-              {
-                value: model.output,
-                percent: insight?.outputBarPercent,
-              },
-            ];
 
             return (
               <tr
@@ -360,17 +434,18 @@ export function PricingTable({
                   </div>
                 </td>
 
-                {prices.map((price, index) => (
-                  <td
-                    key={index === 0 ? "input" : "output"}
-                    className="column-price"
-                  >
-                    <PriceBar
-                      value={formatPrice(price.value)}
-                      percent={price.percent ?? 0}
-                    />
-                  </td>
-                ))}
+                <td className="column-price">
+                  <PriceBar
+                    value={formatPrice(model.input)}
+                    percent={insight?.inputBarPercent ?? 0}
+                  />
+                </td>
+                <td className="column-price">
+                  <PriceBar
+                    value={formatPrice(model.output)}
+                    percent={insight?.outputBarPercent ?? 0}
+                  />
+                </td>
 
                 {showCachedRead && (
                   <td className="column-price">
@@ -391,33 +466,19 @@ export function PricingTable({
                   />
                 </td>
 
-                <td className="column-metric">
-                  <CapabilityCell
-                    capability={insight?.metrics.aaIntelligence ?? null}
-                    metricKey="aaIntelligence"
-                    rangeCount={insights.metricRanges.aaIntelligence.count}
+                <td className="column-profile">
+                  <ProfileDimensionCell dimension={insight?.profile.dimensions.hard} />
+                </td>
+                <td className="column-profile">
+                  <ProfileDimensionCell
+                    dimension={insight?.profile.dimensions.medium}
                   />
                 </td>
-                <td className="column-metric">
-                  <CapabilityCell
-                    capability={insight?.metrics.text ?? null}
-                    metricKey="text"
-                    rangeCount={insights.metricRanges.text.count}
-                  />
+                <td className="column-profile">
+                  <ProfileDimensionCell dimension={insight?.profile.dimensions.daily} />
                 </td>
-                <td className="column-metric">
-                  <CapabilityCell
-                    capability={insight?.metrics.webdev ?? null}
-                    metricKey="webdev"
-                    rangeCount={insights.metricRanges.webdev.count}
-                  />
-                </td>
-                <td className="column-metric">
-                  <CapabilityCell
-                    capability={insight?.metrics.agent ?? null}
-                    metricKey="agent"
-                    rangeCount={insights.metricRanges.agent.count}
-                  />
+                <td className="column-profile-summary">
+                  <ProfileCell insight={insight} />
                 </td>
                 <td className="column-value">
                   <ValueCell insight={insight} />

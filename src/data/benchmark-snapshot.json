@@ -1,0 +1,270 @@
+{
+  "capturedAt": "2026-11-06T00:00:00.000Z",
+  "benchmarks": {
+    "terminalBench4": {
+      "label": "Terminal-Bench 4.0",
+      "version": "4.0",
+      "url": "https://www.tbench.ai/leaderboard",
+      "kind": "direct",
+      "usedInProfile": true,
+      "note": "官方排行榜结果包含 Agent harness 影响；分数为分辨率百分比。",
+      "results": [
+        {
+          "modelId": "claude-opus-5.5",
+          "score": 64.85,
+          "sourceModelName": "Opus 5.5",
+          "harness": "Claude Code",
+          "reasoningEffort": "max",
+          "modelReleaseDate": "2026-09-22"
+        },
+        {
+          "modelId": "claude-sonnet-5.5",
+          "score": 61.82,
+          "sourceModelName": "Sonnet 5.5",
+          "harness": "Claude Code",
+          "reasoningEffort": "max",
+          "modelReleaseDate": "2026-09-28"
+        },
+        {
+          "modelId": "gpt-6-astra",
+          "score": 58.18,
+          "sourceModelName": "GPT-6 Astra",
+          "harness": "Codex",
+          "reasoningEffort": "max",
+          "modelReleaseDate": "2026-09-03"
+        },
+        {
+          "modelId": "gpt-6.1-sol",
+          "score": 58.18,
+          "sourceModelName": "GPT-6.1 Sol",
+          "harness": "Codex",
+          "reasoningEffort": "max",
+          "modelReleaseDate": "2026-09-29"
+        },
+        {
+          "modelId": "claude-fable-5.1",
+          "score": 57.88,
+          "sourceModelName": "Fable 5.1",
+          "harness": "Claude Code",
+          "reasoningEffort": "max",
+          "modelReleaseDate": "2026-09-01"
+        },
+        {
+          "modelId": "claude-opus-5",
+          "score": 53.9,
+          "sourceModelName": "Opus 5",
+          "harness": "Claude Code",
+          "reasoningEffort": "xhigh",
+          "modelReleaseDate": "2026-07-24"
+        },
+        {
+          "modelId": "gpt-6-sol",
+          "score": 49.4,
+          "sourceModelName": "GPT-6 Sol",
+          "harness": "Codex",
+          "reasoningEffort": "max",
+          "modelReleaseDate": "2026-09-22"
+        },
+        {
+          "modelId": "claude-fable-5",
+          "score": 44.5,
+          "sourceModelName": "Fable 5",
+          "harness": "Claude Code",
+          "reasoningEffort": "max",
+          "modelReleaseDate": "2026-06-09"
+        },
+        {
+          "modelId": "grok-4.7",
+          "score": 37.6,
+          "sourceModelName": "Grok 4.7",
+          "harness": "Grok Build",
+          "reasoningEffort": "xhigh",
+          "modelReleaseDate": "2026-09-21"
+        },
+        {
+          "modelId": "gpt-5.6-sol",
+          "score": 37.3,
+          "sourceModelName": "GPT-5.6 Sol",
+          "harness": "Codex",
+          "reasoningEffort": "max",
+          "modelReleaseDate": "2026-06-26"
+        },
+        {
+          "modelId": "claude-opus-4.8",
+          "score": 23.64,
+          "sourceModelName": "Opus 4.8",
+          "harness": "Claude Code",
+          "reasoningEffort": "max",
+          "modelReleaseDate": "2026-05-28"
+        },
+        {
+          "modelId": "gpt-5.6-terra",
+          "score": 21.5,
+          "sourceModelName": "GPT-5.6 Terra",
+          "harness": "Codex",
+          "reasoningEffort": "max",
+          "modelReleaseDate": "2026-06-26"
+        },
+        {
+          "modelId": "grok-4.6",
+          "score": 20.3,
+          "sourceModelName": "Grok 4.6",
+          "harness": "Grok Build",
+          "reasoningEffort": "high",
+          "modelReleaseDate": "2026-08-12"
+        },
+        {
+          "modelId": "gemini-3.8-flash",
+          "score": 19.09,
+          "sourceModelName": "Gemini 3.8 Flash",
+          "harness": "mini-SWE-agent",
+          "reasoningEffort": "high",
+          "modelReleaseDate": "2026-09-02"
+        },
+        {
+          "modelId": "gpt-5.6-luna",
+          "score": 17.27,
+          "sourceModelName": "GPT-5.6 Luna",
+          "harness": "Codex",
+          "reasoningEffort": "max",
+          "modelReleaseDate": "2026-06-26"
+        },
+        {
+          "modelId": "gpt-6-luna",
+          "score": 16.36,
+          "sourceModelName": "GPT-6 Luna",
+          "harness": "Codex",
+          "reasoningEffort": "max",
+          "modelReleaseDate": "2026-09-22"
+        },
+        {
+          "modelId": "grok-4.5",
+          "score": 12.42,
+          "sourceModelName": "Grok 4.5",
+          "harness": "Grok Build",
+          "reasoningEffort": "high",
+          "modelReleaseDate": "2026-07-16"
+        },
+        {
+          "modelId": "claude-sonnet-5",
+          "score": 12.42,
+          "sourceModelName": "Sonnet 5",
+          "harness": "Claude Code",
+          "reasoningEffort": "max",
+          "modelReleaseDate": "2026-06-30"
+        }
+      ]
+    },
+    "terminalBench2": {
+      "label": "Terminal-Bench 2.0",
+      "version": "2.0",
+      "url": "https://hub.harborframework.com/datasets/terminal-bench/terminal-bench-2/latest?tab=leaderboard&leaderboard=2-0-0",
+      "kind": "legacy",
+      "usedInProfile": true,
+      "note": "历史版本；同一模型可能有多个 Agent 结果，快照取已核对的最高官方结果并保留 harness。",
+      "results": [
+        {
+          "modelId": "gpt-5.5",
+          "score": 84.7,
+          "sourceModelName": "GPT-5.5",
+          "harness": "NexAU-AHE",
+          "reasoningEffort": "not reported",
+          "modelReleaseDate": "2026-04-23"
+        },
+        {
+          "modelId": "gpt-5.3-codex",
+          "score": 78.4,
+          "sourceModelName": "GPT-5.3-Codex",
+          "harness": "SageAgent",
+          "reasoningEffort": "not reported",
+          "modelReleaseDate": "2026-02-05"
+        },
+        {
+          "modelId": "claude-sonnet-4.6",
+          "score": 53.4,
+          "sourceModelName": "Claude Sonnet 4.6",
+          "harness": "SimplAI Agent",
+          "reasoningEffort": "not reported",
+          "modelReleaseDate": "2026-02-17"
+        },
+        {
+          "modelId": "claude-haiku-4.5",
+          "score": 35.5,
+          "sourceModelName": "Claude Haiku 4.5",
+          "harness": "Goose",
+          "reasoningEffort": "not reported",
+          "modelReleaseDate": "2025-10-15"
+        }
+      ]
+    },
+    "sweBenchVerified": {
+      "label": "SWE-bench Verified",
+      "version": "Verified",
+      "url": "https://www.swebench.com/",
+      "kind": "direct",
+      "usedInProfile": true,
+      "note": "官方页面内嵌结果；当前使用 mini-SWE-agent 的规范化视图。",
+      "results": [
+        {
+          "modelId": "claude-haiku-4.5",
+          "score": 66.6,
+          "sourceModelName": "Claude 4.5 Haiku",
+          "harness": "mini-SWE-agent",
+          "reasoningEffort": "high",
+          "publishedAt": "2026-02-17"
+        }
+      ]
+    },
+    "longCliBench": {
+      "label": "LongCLI-Bench",
+      "version": "paper snapshot",
+      "url": "https://github.com/finyorko/longcli-bench",
+      "kind": "direct",
+      "usedInProfile": false,
+      "note": "只有图片结果表；覆盖低且通过率低，仅作诊断证据。",
+      "results": [
+        {
+          "modelId": "gpt-5.3-codex",
+          "score": 15,
+          "sourceModelName": "GPT-5.3-Codex",
+          "harness": "Codex",
+          "reasoningEffort": "not reported"
+        }
+      ]
+    },
+    "clawMark": {
+      "label": "ClawMark",
+      "version": "100-task leaderboard",
+      "url": "https://github.com/evolvent-ai/ClawMark",
+      "kind": "direct",
+      "usedInProfile": true,
+      "note": "多日办公任务平均分；README 表显示 avg@3。",
+      "results": [
+        {
+          "modelId": "claude-sonnet-4.6",
+          "score": 75.8,
+          "sourceModelName": "claude-sonnet-4-6",
+          "harness": "ClawMark",
+          "reasoningEffort": "not reported"
+        }
+      ]
+    },
+    "emailBench": {
+      "label": "emailbench",
+      "version": "proofpoint-ai dataset result",
+      "url": "https://huggingface.co/datasets/proofpoint-ai/emailbench",
+      "kind": "direct",
+      "usedInProfile": false,
+      "note": "邮件安全 MCQA，不是办公任务执行；前沿模型接近饱和，仅作诊断证据，不进入 Profile。",
+      "results": [
+        {
+          "modelId": "claude-haiku-4.5",
+          "score": 99.7,
+          "sourceModelName": "anthropic.claude-haiku-4-5",
+          "harness": "lighteval",
+          "reasoningEffort": "not reported"
+        }
+      ]
+    }
+  }
+}

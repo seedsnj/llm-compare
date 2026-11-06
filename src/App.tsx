@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import benchmarkJson from "./data/benchmark-snapshot.json";
 import capabilityJson from "./data/capability-snapshot.json";
 import pricingJson from "./data/pricing-fallback.json";
 import {
@@ -13,6 +14,7 @@ import {
 import { buildModelInsights, type InsightsResult } from "./lib/insights";
 import { formatDate, normalizeModelsDevPayload } from "./lib/models";
 import type {
+  BenchmarkSnapshot,
   CapabilitySnapshot,
   CopilotModel,
   PricingSnapshot,
@@ -24,6 +26,7 @@ const MODELS_DEV_URL = "https://models.dev/api.json";
 
 const fallbackSnapshot = pricingJson as PricingSnapshot;
 const capabilitySnapshot = capabilityJson as CapabilitySnapshot;
+const benchmarkSnapshot = benchmarkJson as BenchmarkSnapshot;
 
 function readCachedPricing() {
   try {
@@ -71,7 +74,8 @@ function compareModels(
     const insight = insights.byModelId[model.id];
     if (sortKey === "referenceCost") return insight?.referenceCost ?? null;
     if (sortKey === "value") return insight?.valueIndex ?? null;
-    return insight?.metrics[sortKey]?.evidence.score ?? null;
+    if (sortKey === "profile") return insight?.profile.score ?? null;
+    return insight?.profile.dimensions[sortKey]?.score ?? null;
   };
 
   const aValue = getValue(a);
@@ -117,7 +121,12 @@ export default function App() {
     [includeRetired, pricingSnapshot.models],
   );
   const modelInsights = useMemo(
-    () => buildModelInsights(pricingSnapshot.models, capabilitySnapshot),
+    () =>
+      buildModelInsights(
+        pricingSnapshot.models,
+        capabilitySnapshot,
+        benchmarkSnapshot,
+      ),
     [pricingSnapshot.models],
   );
 
@@ -247,8 +256,8 @@ export default function App() {
           <h1>按任务看懂模型价格与能力</h1>
           <p className="intro">
             只比较用量计费口径。1 credit = $0.01；价格单位为美元 / 100 万
-            tokens。能力预测只使用可精确匹配的 LMArena 与
-            Artificial Analysis 数据，不用猜测填补空白。
+            tokens。Profile 优先使用 Terminal-Bench、SWE-bench 和
+            ClawMark，缺失时才用清楚标记的 LMArena 代理，不用猜测填补空白。
           </p>
         </div>
         <div className="summary-strip" aria-label="数据摘要">
@@ -349,7 +358,8 @@ export default function App() {
           <span title="按 100,000 input + 12,000 output tokens 估算，不含缓存折扣">
             参考成本 = 100k 输入 + 12k 输出，1 credit = $0.01
           </span>
-          <span>价格条为对数刻度；能力条只在同一指标内比较</span>
+          <span>Profile = 高难 20% + 通用 60% + 日常 20%</span>
+          <span>实色为直接基准；斜纹为降级代理</span>
           <span>无数据不会被当作 0 分</span>
         </div>
 
@@ -371,6 +381,7 @@ export default function App() {
         <PredictionDetails
           model={selectedModel}
           snapshot={capabilitySnapshot}
+          profile={modelInsights.byModelId[selectedModel.id].profile}
         />
       ) : (
         <section className="panel empty-panel">
@@ -385,6 +396,7 @@ export default function App() {
           <code>{capabilitySnapshot.dataset.revision.slice(0, 12)}</code>，
           Artificial Analysis 数据生成于{" "}
           {formatDate(capabilitySnapshot.aiIndex.generatedAt)}。
+          Benchmark 快照 {formatDate(benchmarkSnapshot.capturedAt)}。
         </p>
         <div>
           <a
@@ -400,6 +412,20 @@ export default function App() {
             rel="noreferrer"
           >
             ai-model-index ↗
+          </a>
+          <a
+            href="https://www.tbench.ai/leaderboard"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Terminal-Bench ↗
+          </a>
+          <a
+            href="https://www.swebench.com/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            SWE-bench ↗
           </a>
         </div>
         <p>
