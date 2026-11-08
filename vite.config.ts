@@ -5,8 +5,5 @@ export default defineConfig({
   esbuild: {
     jsx: "automatic",
   },
-  esbuild: {
-    jsx: "automatic",
-  },
 });
 
